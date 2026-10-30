@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oracle MCP — API Key</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #1f2328; --muted: #59636e; --border: #d0d7de; --field: #fbfcfd;
+    --accent: #c74634; --accent-soft: #fbeae7; --accent-text: #fff;
+    --error-bg: #ffebe9; --error: #cf222e; --ok-bg: #dafbe1; --ok: #1a7f37; --warn-bg: #fff8c5; --warn: #7d4e00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9198a1; --border: #30363d; --field: #0d1117;
+      --accent: #e5604c; --accent-soft: #2d1714; --accent-text: #fff;
+      --error-bg: #3c1618; --error: #ff7b72; --ok-bg: #12261e; --ok: #3fb950; --warn-bg: #2e2410; --warn: #d29922;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 16px 48px; background: var(--bg); color: var(--text);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 0; display: flex; align-items: center; gap: 10px; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: var(--accent-soft);
+         padding: 1px 5px; border-radius: 4px; }
+  .lead { color: var(--muted); margin: 0; }
+  .step { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+          background: var(--accent); color: var(--accent-text); font-size: 14px; font-weight: 700; flex: none; }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  section > p.intro { color: var(--muted); margin: 6px 0 16px 36px; }
+
+  .how { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 16px; }
+  .how div { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+             font-size: 13.5px; color: var(--muted); }
+  .how b { display: block; color: var(--text); margin-bottom: 2px; }
+
+  .field { margin-top: 14px; }
+  .field:first-child { margin-top: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 14px; }
+  .grid .field:first-child { margin-top: 14px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .help { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .guide { margin-top: 8px; font-size: 13.5px; color: var(--muted); }
+  .guide summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  .guide ol, .guide ul { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; }
+  .guide code { word-break: break-all; }
+  .guide p { margin: 8px 0 0; }
+  .row { display: flex; gap: 8px; }
+  .row > input, .row > textarea, .row > select { flex: 1; min-width: 0; }
+  input, textarea, select { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px;
+                    background: var(--field); color: var(--text); font: inherit; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 72px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; word-break: break-all; }
+  .check { display: flex; align-items: center; gap: 8px; font-weight: 400; cursor: pointer; }
+  .check input { width: auto; }
+  .modes { display: flex; gap: 18px; flex-wrap: wrap; }
+
+  button { padding: 9px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--card);
+           color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .6; cursor: default; }
+  .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 18px; }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+                 padding: 8px 14px; color: var(--muted); font-weight: 600; }
+  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+  .msg { margin-top: 14px; padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; }
+  .msg.error { background: var(--error-bg); color: var(--error); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  .note { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 10px 12px; font-size: 13.5px; margin-top: 14px; }
+  .preview { margin-top: 14px; }
+  .preview pre, .usage pre { margin: 0; padding: 10px 12px; background: var(--field); border: 1px solid var(--border); border-radius: 6px;
+               font: 12.5px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; flex: 1; min-width: 0; }
+  .result { margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--border); }
+  .result h3 { font-size: 15px; margin: 0 0 10px; }
+  .usage { margin-top: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🔑 Gerador de API Key — Oracle MCP</h1>
+    <p class="lead">
+      O servidor MCP recebe <b>um único header</b>, <code>x-api-key</code>, que junta numa só string a sua chave de acesso
+      ao MCP e, opcionalmente, as credenciais do banco Oracle (a connection string). Esta página monta essa string para você
+      — e também faz o caminho inverso.
+    </p>
+    <div class="how">
+      <div><b>1. Identifique-se</b>Informe a chave MCP que o administrador do servidor liberou para você.</div>
+      <div><b>2. Gere a key</b>Preencha host, serviço, usuário e senha do Oracle (ou deixe em branco para usar a conexão do servidor).</div>
+      <div><b>3. Use no cliente</b>Copie a key e cadastre-a no header <code>x-api-key</code> do Claude Code, Copilot Studio etc.</div>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="step">1</span> Sua chave MCP</h2>
+    <p class="intro">Necessária para usar esta página: o servidor só gera, decodifica ou testa para quem tem uma chave válida.</p>
+    <div class="field">
+      <label for="authKey">Chave MCP</label>
+      <div class="row">
+        <input id="authKey" type="password" autocomplete="off" placeholder="Ex.: minha-chave-mcp">
+        <button type="button" data-toggle="authKey">Mostrar</button>
+      </div>
+      <p class="help">É uma das chaves cadastradas em <code>McpAuth:ApiKeys</code> no servidor. Não sabe qual é? Peça a quem administra o servidor.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="step">2</span> O que você quer fazer?</h2>
+    <p class="intro">Gere uma key nova, ou cole uma key existente para conferir o que há dentro dela.</p>
+
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabGenerate" aria-controls="panelGenerate" aria-selected="true">Gerar key</button>
+      <button type="button" role="tab" id="tabDecode" aria-controls="panelDecode" aria-selected="false">Decodificar key</button>
+    </div>
+
+    <div id="panelGenerate" role="tabpanel" aria-labelledby="tabGenerate">
+      <form id="generateForm" novalidate>
+        <div class="field">
+          <label class="check"><input id="genSameKey" type="checkbox" checked> Gravar na key a mesma chave MCP informada no passo 1</label>
+          <p class="help">É o caso comum. Desmarque só se a key for para outra pessoa, com outra chave MCP.</p>
+        </div>
+        <div class="field" id="genMcpApiKeyField" hidden>
+          <label for="genMcpApiKey">Chave MCP a gravar na key</label>
+          <div class="row">
+            <input id="genMcpApiKey" type="password" autocomplete="off" placeholder="Ex.: chave-mcp-do-colega">
+            <button type="button" data-toggle="genMcpApiKey">Mostrar</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Credenciais do Oracle</label>
+          <div class="modes" role="radiogroup">
+            <label class="check"><input type="radio" name="mode" value="fields" checked> Preencher campos</label>
+            <label class="check"><input type="radio" name="mode" value="raw"> Colar connection string</label>
+            <label class="check"><input type="radio" name="mode" value="server"> Usar a conexão do servidor</label>
+          </div>
+        </div>
+
+        <div id="modeFields">
+          <div class="grid">
+            <div class="field">
+              <label for="oraHost">Host</label>
+              <input id="oraHost" autocomplete="off" placeholder="oracle.minha-empresa.com">
+            </div>
+            <div class="field">
+              <label for="oraPort">Porta</label>
+              <input id="oraPort" type="number" min="1" max="65535" autocomplete="off" value="1521">
+            </div>
+            <div class="field">
+              <label for="oraTargetType">Identificar o banco por</label>
+              <select id="oraTargetType">
+                <option value="service">Service Name</option>
+                <option value="sid">SID</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="oraTarget" id="oraTargetLabel">Service Name</label>
+              <input id="oraTarget" autocomplete="off" placeholder="ORCLPDB1">
+            </div>
+            <div class="field">
+              <label for="oraUser">Usuário</label>
+              <input id="oraUser" autocomplete="off" placeholder="APP_USER">
+            </div>
+            <div class="field">
+              <label for="oraPassword">Senha</label>
+              <div class="row">
+                <input id="oraPassword" type="password" autocomplete="new-password">
+                <button type="button" data-toggle="oraPassword">Mostrar</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="oraPrivilege">Privilégio administrativo</label>
+              <select id="oraPrivilege">
+                <option value="">Nenhum (usuário comum)</option>
+                <option value="SYSDBA">SYSDBA</option>
+                <option value="SYSOPER">SYSOPER</option>
+              </select>
+            </div>
+          </div>
+          <details class="guide">
+            <summary>Onde encontro esses dados?</summary>
+            <ul>
+              <li>No <b>tnsnames.ora</b>, cada entrada tem <code>HOST</code>, <code>PORT</code> e <code>SERVICE_NAME</code> (ou <code>SID</code>).</li>
+              <li>No SQL Developer / DBeaver, abra as propriedades da conexão já existente: os campos são os mesmos.</li>
+              <li>Conectado no banco, <code>SELECT SYS_CONTEXT('USERENV','SERVICE_NAME') FROM DUAL</code> mostra o Service Name.</li>
+              <li>Em bancos multitenant (12c+), use o Service Name da <b>PDB</b> (ex.: <code>ORCLPDB1</code>), não o da CDB.</li>
+            </ul>
+          </details>
+        </div>
+
+        <div id="modeRaw" hidden>
+          <div class="field">
+            <label for="oraRaw">Connection string (ODP.NET)</label>
+            <textarea id="oraRaw" autocomplete="off" placeholder="User Id=APP_USER;Password=senha;Data Source=//oracle.minha-empresa.com:1521/ORCLPDB1"></textarea>
+            <p class="help">Formato do <code>Oracle.ManagedDataAccess</code>. O <code>Data Source</code> aceita EZConnect
+              (<code>//host:porta/servico</code>) ou o descritor completo <code>(DESCRIPTION=...)</code>. Nomes do tnsnames.ora só
+              funcionam se o servidor tiver o arquivo.</p>
+          </div>
+        </div>
+
+        <div id="modeServer" hidden>
+          <p class="help">💡 A key levará só a chave MCP: o servidor usará a connection string da configuração dele
+            (<code>Oracle:ConnectionString</code> ou a variável <code>ORACLE_CONNECTION</code>).</p>
+        </div>
+
+        <div class="preview" id="previewBox" hidden>
+          <label for="csPreview">Connection string que irá na key</label>
+          <pre id="csPreview"></pre>
+          <p class="help">A senha aparece mascarada aqui, mas vai completa dentro da key.</p>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="primary">Gerar key</button>
+          <button type="button" id="testButton">Testar conexão</button>
+          <button type="button" data-clear="generate">Limpar</button>
+        </div>
+      </form>
+      <div id="generateMsg" class="msg" hidden></div>
+
+      <div id="generateResult" class="result" hidden>
+        <h3>✅ Key gerada</h3>
+        <div class="row">
+          <textarea id="genOutput" readonly aria-label="Key gerada"></textarea>
+          <button type="button" data-copy="genOutput">Copiar</button>
+        </div>
+        <div class="note">
+          ⚠️ Trate a key como uma senha: ela <b>não é criptografada</b>, só embaralhada — quem a tiver consegue recuperar
+          o usuário e a senha do Oracle que estão dentro dela. Cada clique em "Gerar" produz uma key diferente, e todas são válidas.
+        </div>
+
+        <div class="usage">
+          <h3>Como usar</h3>
+          <label for="usageClaude">No Claude Code (terminal)</label>
+          <div class="row">
+            <pre id="usageClaude"></pre>
+            <button type="button" data-copy="usageClaude">Copiar</button>
+          </div>
+          <p class="help">Acrescente <code>--scope user</code> depois de <code>add</code> para o MCP ficar disponível em todos os projetos.</p>
+          <p class="help">Em conectores web (Claude Web, Copilot Studio), informe a URL <code id="usageUrl"></code> e o header <code>x-api-key</code> com a key acima.</p>
+          <details class="guide">
+            <summary>Como adicionar no Copilot Studio</summary>
+            <ol>
+              <li>No agente, abra <i>Tools</i>, clique em <i>Add a tool</i> → <i>New tool</i> → <i>Model Context Protocol</i>.</li>
+              <li>Preencha <i>Server name</i>, <i>Server description</i> (diga que o servidor consulta e altera dados num banco Oracle — o agente usa isso para decidir quando chamá-lo) e, em <i>Server URL</i>, <code class="mcp-url"></code>.</li>
+              <li>Em <i>Authentication</i>, escolha <i>API key</i>, <i>Type</i> = <i>Header</i> e nome do header <code>x-api-key</code>. Clique em <i>Create</i>.</li>
+              <li>Na tela <i>Add tool</i>, escolha <i>Create a new connection</i>, cole a key gerada acima e clique em <i>Add to agent</i>.</li>
+            </ol>
+          </details>
+          <details class="guide">
+            <summary>Como adicionar no Claude Web (conector personalizado)</summary>
+            <ol>
+              <li>Planos Free, Pro e Max: vá em <i>Customize → Connectors</i> e clique em <i>Add custom connector</i>.
+                  Planos Team e Enterprise: um Owner vai em <i>Organization settings → Connectors</i> → <i>Add</i> → <i>Custom</i> → <i>Web</i>.</li>
+              <li>Em <i>MCP server URL</i>, informe <code class="mcp-url"></code>.</li>
+              <li>Em <i>Authentication</i>, escolha <i>No sign-in</i>.</li>
+              <li>Em <i>Request headers</i>, selecione <code>x-api-key</code>, cole a key gerada acima como valor, marque <i>Required</i> e clique em <i>Add</i>.</li>
+              <li>Na conversa, ligue o conector pelo botão <b>+</b> → <i>Connectors</i>.</li>
+            </ol>
+            <p>⚠️ O valor do header vale para todos que usam o conector: numa organização, todos acessarão o Oracle com o usuário gravado nessa key.</p>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <div id="panelDecode" role="tabpanel" aria-labelledby="tabDecode" hidden>
+      <form id="decodeForm" novalidate>
+        <div class="field">
+          <label for="decApiKey">Key a decodificar</label>
+          <textarea id="decApiKey" autocomplete="off" placeholder="Cole aqui a key (o valor do header x-api-key)"></textarea>
+          <p class="help">Útil para conferir para qual banco e usuário uma key aponta.</p>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Decodificar key</button>
+          <button type="button" data-clear="decode">Limpar</button>
+        </div>
+      </form>
+      <div id="decodeMsg" class="msg" hidden></div>
+
+      <div id="decodeResult" class="result" hidden>
+        <h3>🔍 Conteúdo da key</h3>
+        <div class="field">
+          <label for="decMcpApiKey">Chave MCP</label>
+          <div class="row">
+            <input id="decMcpApiKey" type="password" readonly>
+            <button type="button" data-toggle="decMcpApiKey">Mostrar</button>
+            <button type="button" data-copy="decMcpApiKey">Copiar</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="decConnection">Connection string do Oracle</label>
+          <div class="row">
+            <input id="decConnection" type="password" readonly>
+            <button type="button" data-toggle="decConnection">Mostrar</button>
+            <button type="button" data-copy="decConnection">Copiar</button>
+          </div>
+        </div>
+        <p class="help">Campo vazio significa que a key não traz connection string — o servidor usa a da configuração dele.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="help" style="text-align:center">🔒 Nada do que você digita fica salvo no navegador; tudo é enviado apenas a este servidor.</p>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  // URL base do servidor = endereço em que a página foi aberta (sem query/hash e sem o nome do arquivo),
+  // para funcionar em qualquer host — inclusive atrás de proxy com prefixo, acessado sem a barra final.
+  const baseUrl = (() => {
+    const url = new URL(location.href);
+    url.search = url.hash = '';
+    if (url.pathname.endsWith('/index.html'))
+      url.pathname = url.pathname.slice(0, -'index.html'.length);
+    else if (!url.pathname.endsWith('/'))
+      url.pathname += '/';
+    return url;
+  })();
+  const mcpUrl = new URL('mcp', baseUrl).href;
+  const emptyText = '(vazio — usa a configuração do servidor)';
+
+  function showMessage(id, text, kind) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = 'msg ' + kind;
+    el.hidden = !text;
+  }
+
+  function friendlyError(status, error) {
+    if (status === 401)
+      return 'Chave MCP não aceita pelo servidor. Confira a chave informada no passo 1.';
+    if (status === 429)
+      return 'Muitas tentativas em pouco tempo. Aguarde um minuto e tente de novo.';
+    if (status === 400 && error)
+      return error === 'API Key inválida.'
+        ? 'Essa key não é válida. Confira se ela foi colada inteira, sem espaços ou quebras de linha a mais.'
+        : error;
+    return error || `O servidor respondeu com erro ${status}.`;
+  }
+
+  async function callApi(path, body) {
+    const authKey = $('authKey').value.trim();
+    if (!authKey) {
+      $('authKey').focus();
+      throw new Error('Informe primeiro a sua chave MCP (passo 1).');
+    }
+
+    let response;
+    try {
+      response = await fetch(new URL(path, baseUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': authKey },
+        body: JSON.stringify(body)
+      });
+    } catch {
+      throw new Error('Não foi possível falar com o servidor. Verifique se ele está no ar e tente de novo.');
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok)
+      throw new Error(friendlyError(response.status, data && data.error));
+    return data;
+  }
+
+  // ---------- Montagem da connection string ----------
+
+  const mode = () => document.querySelector('input[name=mode]:checked').value;
+
+  // Valores com ; = aspas ou espaços nas pontas precisam ir entre aspas na connection string.
+  function quote(value) {
+    if (!/[;="']|^\s|\s$/.test(value)) return value;
+    return value.includes('"') ? `'${value}'` : `"${value}"`;
+  }
+
+  function buildDataSource() {
+    const host = $('oraHost').value.trim();
+    const port = $('oraPort').value.trim() || '1521';
+    const target = $('oraTarget').value.trim();
+    if ($('oraTargetType').value === 'sid')
+      return `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${host})(PORT=${port}))(CONNECT_DATA=(SID=${target})))`;
+    return `//${host}:${port}/${target}`;
+  }
+
+  // Devolve { connectionString, masked } ou lança erro com o campo que falta.
+  function buildConnectionString({ validate }) {
+    if (mode() === 'server') return { connectionString: null, masked: null };
+
+    if (mode() === 'raw') {
+      const raw = $('oraRaw').value.trim();
+      if (validate && !raw) {
+        $('oraRaw').focus();
+        throw new Error('Cole a connection string, ou escolha "Usar a conexão do servidor".');
+      }
+      return { connectionString: raw || null, masked: maskPassword(raw) };
+    }
+
+    const required = [['oraHost', 'o host'], ['oraTarget', 'o Service Name/SID'], ['oraUser', 'o usuário'], ['oraPassword', 'a senha']];
+    if (validate) {
+      for (const [id, name] of required) {
+        if (!$(id).value.trim()) {
+          $(id).focus();
+          throw new Error(`Informe ${name} do Oracle.`);
+        }
+      }
+    }
+
+    const user = $('oraUser').value.trim();
+    const password = $('oraPassword').value;
+    const privilege = $('oraPrivilege').value;
+    const parts = [`User Id=${quote(user)}`, `Password=${quote(password)}`, `Data Source=${buildDataSource()}`];
+    if (privilege) parts.push(`DBA Privilege=${privilege}`);
+    const connectionString = parts.join(';');
+    const masked = connectionString.replace(`Password=${quote(password)}`, 'Password=******');
+    return { connectionString, masked };
+  }
+
+  function maskPassword(cs) {
+    return cs.replace(/((?:password|pwd)\s*=\s*)("[^"]*"|'[^']*'|[^;]*)/gi, '$1******');
+  }
+
+  function updateMode() {
+    const m = mode();
+    $('modeFields').hidden = m !== 'fields';
+    $('modeRaw').hidden = m !== 'raw';
+    $('modeServer').hidden = m !== 'server';
+    $('testButton').hidden = m === 'server';
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const { masked } = buildConnectionString({ validate: false });
+    const hasContent = mode() === 'fields'
+      ? ['oraHost', 'oraTarget', 'oraUser'].some(id => $(id).value.trim())
+      : !!masked;
+    $('previewBox').hidden = mode() !== 'fields' || !hasContent;
+    $('csPreview').textContent = masked || '';
+  }
+
+  for (const radio of document.querySelectorAll('input[name=mode]'))
+    radio.addEventListener('change', updateMode);
+  for (const id of ['oraHost', 'oraPort', 'oraTarget', 'oraUser', 'oraPassword', 'oraRaw'])
+    $(id).addEventListener('input', updatePreview);
+  for (const id of ['oraTargetType', 'oraPrivilege'])
+    $(id).addEventListener('change', updatePreview);
+  $('oraTargetType').addEventListener('change', e => {
+    const sid = e.target.value === 'sid';
+    $('oraTargetLabel').textContent = sid ? 'SID' : 'Service Name';
+    $('oraTarget').placeholder = sid ? 'ORCL' : 'ORCLPDB1';
+  });
+
+  // ---------- Ações ----------
+
+  async function withBusy(button, busyText, action) {
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = busyText;
+    try {
+      await action();
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
+  }
+
+  async function submitWith(form, msgId, resultId, busyText, action) {
+    const button = form.querySelector('button[type=submit]');
+    showMessage(msgId, '', 'ok');
+    $(resultId).hidden = true;
+    await withBusy(button, busyText, async () => {
+      try {
+        await action();
+        $(resultId).hidden = false;
+        $(resultId).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        showMessage(msgId, err.message, 'error');
+      }
+    });
+  }
+
+  function selectTab(tab) {
+    for (const t of document.querySelectorAll('[role=tab]')) {
+      const selected = t === tab;
+      t.setAttribute('aria-selected', selected);
+      $(t.getAttribute('aria-controls')).hidden = !selected;
+    }
+  }
+
+  for (const tab of document.querySelectorAll('[role=tab]'))
+    tab.addEventListener('click', () => selectTab(tab));
+
+  $('genSameKey').addEventListener('change', e => {
+    $('genMcpApiKeyField').hidden = e.target.checked;
+    if (!e.target.checked) $('genMcpApiKey').focus();
+  });
+
+  $('testButton').addEventListener('click', () => {
+    showMessage('generateMsg', '', 'ok');
+    withBusy($('testButton'), 'Testando…', async () => {
+      try {
+        const { connectionString } = buildConnectionString({ validate: true });
+        const info = await callApi('api-key/test-connection', { connectionString });
+        showMessage('generateMsg',
+          `✓ Conectou! Banco ${info.database ?? '?'} (serviço ${info.serviceName ?? '?'}), usuário ${info.user ?? '?'}, Oracle ${info.serverVersion ?? '?'}.`,
+          'ok');
+      } catch (err) {
+        showMessage('generateMsg', err.message, 'error');
+      }
+    });
+  });
+
+  $('generateForm').addEventListener('submit', e => {
+    e.preventDefault();
+    submitWith(e.target, 'generateMsg', 'generateResult', 'Gerando…', async () => {
+      const sameKey = $('genSameKey').checked;
+      const mcpApiKey = sameKey ? $('authKey').value.trim() : $('genMcpApiKey').value.trim();
+      if (!sameKey && !mcpApiKey) {
+        $('genMcpApiKey').focus();
+        throw new Error('Informe a chave MCP a gravar na key, ou marque a opção de usar a mesma do passo 1.');
+      }
+
+      const { connectionString } = buildConnectionString({ validate: true });
+      const data = await callApi('api-key/generate', { mcpApiKey, connectionString });
+      $('genOutput').value = data.apiKey;
+      $('usageUrl').textContent = mcpUrl;
+      for (const el of document.querySelectorAll('.mcp-url')) el.textContent = mcpUrl;
+      $('usageClaude').textContent =
+        `claude mcp add --transport http oracle ${mcpUrl} --header "x-api-key: ${data.apiKey}"`;
+    });
+  });
+
+  $('decodeForm').addEventListener('submit', e => {
+    e.preventDefault();
+    submitWith(e.target, 'decodeMsg', 'decodeResult', 'Decodificando…', async () => {
+      const apiKey = $('decApiKey').value.replace(/\s+/g, '');
+      if (!apiKey) {
+        $('decApiKey').focus();
+        throw new Error('Cole a key que deseja decodificar.');
+      }
+
+      const data = await callApi('api-key/decode', { apiKey });
+      $('decMcpApiKey').value = data.mcpApiKey ?? '';
+      $('decConnection').value = data.connectionString ?? '';
+      $('decConnection').placeholder = emptyText;
+    });
+  });
+
+  function clearPanel(which) {
+    if (which === 'generate') {
+      $('generateForm').reset();
+      $('genMcpApiKeyField').hidden = true;
+      $('generateResult').hidden = true;
+      $('oraTargetLabel').textContent = 'Service Name';
+      showMessage('generateMsg', '', 'ok');
+      updateMode();
+    } else {
+      $('decodeForm').reset();
+      $('decodeResult').hidden = true;
+      showMessage('decodeMsg', '', 'ok');
+    }
+  }
+
+  document.addEventListener('click', async e => {
+    const target = e.target.closest('button');
+    if (!target) return;
+
+    if (target.dataset.clear)
+      clearPanel(target.dataset.clear);
+
+    const toggle = target.dataset.toggle;
+    if (toggle) {
+      const input = $(toggle);
+      const hidden = input.type === 'password';
+      input.type = hidden ? 'text' : 'password';
+      target.textContent = hidden ? 'Ocultar' : 'Mostrar';
+    }
+
+    const copy = target.dataset.copy;
+    if (copy) {
+      const el = $(copy);
+      const text = 'value' in el ? el.value : el.textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        target.textContent = 'Copiado! ✓';
+      } catch {
+        target.textContent = 'Não copiou';
+      }
+      setTimeout(() => target.textContent = 'Copiar', 1500);
+    }
+  });
+
+  updateMode();
+</script>
+</body>
+</html>

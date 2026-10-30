@@ -1,0 +1,586 @@
+{
+  "info": {
+    "name": "OracleMcpHttp",
+    "description": "Collection para testar o servidor MCP do Oracle via HTTP (JSON-RPC 2.0).\n\nFluxo:\n1. Configure `mcp_api_key` (uma das chaves de `McpAuth:ApiKeys`) e, se quiser gravar as credenciais na key, `oracle_connection`.\n2. Execute **0. Generate API Key** — a key composta é salva em `api_key`.\n3. Execute **1. Initialize** e **1.1 Initialized** — o `mcp-session-id` é salvo automaticamente.\n4. Execute `connect`, depois as consultas/comandos e por fim `disconnect`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5464",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Generate API Key",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "var json = pm.response.json();",
+              "if (json && json.apiKey) pm.environment.set('api_key', json.apiKey);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{mcp_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mcpApiKey\": \"{{mcp_api_key}}\",\n  \"connectionString\": \"{{oracle_connection}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api-key/generate",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api-key",
+            "generate"
+          ]
+        },
+        "description": "Gera a key composta do header `x-api-key` e salva em `api_key`. Aqui o header `x-api-key` é a chave MCP em texto puro. Deixe `oracle_connection` em branco para usar a connection string do servidor."
+      }
+    },
+    {
+      "name": "0. Decode API Key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{mcp_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"apiKey\": \"{{api_key}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api-key/decode",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api-key",
+            "decode"
+          ]
+        },
+        "description": "Desfaz a key composta e mostra a chave MCP e a connection string gravadas nela."
+      }
+    },
+    {
+      "name": "0. Test Connection",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{mcp_api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"connectionString\": \"{{oracle_connection}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api-key/test-connection",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api-key",
+            "test-connection"
+          ]
+        },
+        "description": "Abre e fecha uma conexão com a connection string informada, para validar as credenciais."
+      }
+    },
+    {
+      "name": "1. Initialize",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var sessionId = pm.response.headers.get('mcp-session-id');",
+              "if (sessionId) pm.environment.set('mcp_session_id', sessionId);",
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2025-06-18\",\n    \"capabilities\": {},\n    \"clientInfo\": {\n      \"name\": \"postman\",\n      \"version\": \"1.0\"\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/mcp",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "description": "Inicia a sessão MCP. O `mcp-session-id` retornado é salvo automaticamente."
+      }
+    },
+    {
+      "name": "1.1 Initialized",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "mcp-session-id",
+            "value": "{{mcp_session_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"notifications/initialized\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/mcp",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "description": "Notificação que conclui o handshake MCP."
+      }
+    },
+    {
+      "name": "2. List Tools",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json, text/event-stream"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{api_key}}"
+          },
+          {
+            "key": "mcp-session-id",
+            "value": "{{mcp_session_id}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/list\",\n  \"params\": {}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/mcp",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "description": "Lista as tools disponíveis."
+      }
+    },
+    {
+      "name": "Oracle",
+      "item": [
+        {
+          "name": "connect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 10,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"connect\",\n    \"arguments\": {}\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Abre a conexão da sessão (usa a connection string da key, do servidor ou do parâmetro connection_string, nessa ordem)."
+          }
+        },
+        {
+          "name": "execute_query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 11,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"execute_query\",\n    \"arguments\": {\n      \"sql\": \"SELECT table_name FROM user_tables ORDER BY table_name FETCH FIRST 20 ROWS ONLY\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Executa um SELECT."
+          }
+        },
+        {
+          "name": "execute_query (bind variables)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 12,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"execute_query\",\n    \"arguments\": {\n      \"sql\": \"SELECT owner, object_name, object_type FROM all_objects WHERE object_name = :nome\",\n      \"parameters_json\": \"{\\\"nome\\\": \\\"DUAL\\\"}\",\n      \"max_rows\": 50\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "SELECT com bind variable nomeada."
+          }
+        },
+        {
+          "name": "execute_command",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 13,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"execute_command\",\n    \"arguments\": {\n      \"sql\": \"BEGIN NULL; END;\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Executa um bloco PL/SQL (ou INSERT/UPDATE/DELETE/DDL)."
+          }
+        },
+        {
+          "name": "disconnect",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 14,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"disconnect\",\n    \"arguments\": {}\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Fecha a conexão da sessão."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shell",
+      "item": [
+        {
+          "name": "get_shell_info",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 20,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_shell_info\",\n    \"arguments\": {}\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Informações do shell do servidor (exige Shell:Enabled=true)."
+          }
+        },
+        {
+          "name": "execute_shell_command",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json, text/event-stream"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "mcp-session-id",
+                "value": "{{mcp_session_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 21,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"execute_shell_command\",\n    \"arguments\": {\n      \"command\": \"echo ola\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/mcp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "mcp"
+              ]
+            },
+            "description": "Executa um comando no shell do servidor (exige Shell:Enabled=true)."
+          }
+        }
+      ]
+    }
+  ]
+}
