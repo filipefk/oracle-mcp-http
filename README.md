@@ -117,3 +117,29 @@ docker build -t oracle-mcp .
 ```bash
 docker run -p 8080:8080 -e McpAuth__ApiKeys__0=minha-chave-mcp -e ORACLE_CONNECTION="User Id=...;Password=...;Data Source=//host:1521/SERVICO" oracle-mcp
 ```
+
+### Usando a rede do host (VPN/LAN da empresa e Oracle local)
+
+Para o container acessar o Oracle como se estivesse rodando direto no computador (mesma VPN, mesma LAN, mesmo DNS e `localhost` do host), use o `docker-compose.yml`, que roda com `network_mode: host`.
+
+Pré-requisitos: Docker Desktop **4.34+**, containers Linux e **Settings → Resources → Network → Enable host networking** ativado.
+
+1. Copie `.env.example` para `.env` e preencha `MCP_API_KEY` (e, se quiser, `ORACLE_CONNECTION` e `MCP_PORT`, padrão 8080).
+2. Suba o container:
+
+```bash
+docker compose up -d --build
+```
+
+O MCP fica em `http://localhost:8080/mcp` (não há mapeamento de portas: o app escuta direto na porta `MCP_PORT` do host).
+
+Sem compose, o equivalente é:
+
+```bash
+docker run --network host -e ASPNETCORE_URLS=http://+:8080 -e McpAuth__ApiKeys__0=minha-chave-mcp oracle-mcp
+```
+
+Observações:
+- **Oracle na VPN/LAN**: use o mesmo nome/IP que funciona no Windows.
+- **Oracle no próprio host**: `localhost` deve funcionar; se não, use `host.docker.internal` (o listener do Oracle não pode estar restrito a `127.0.0.1` e o firewall precisa liberar a porta 1521).
+- **tnsnames.ora**: aliases do `tnsnames.ora` do host não são resolvidos no container. Use EZConnect (`Data Source=//servidor:1521/SERVICO`) ou o descritor completo (`Data Source=(DESCRIPTION=...)`).

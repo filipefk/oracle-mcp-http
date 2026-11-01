@@ -139,3 +139,6 @@ _NCrunch*
 /Apagar-todos-logs-da-api.bat
 /Apagar-todos-arquivos-anexos.bat
 /Apagar-todos-test-result.bat
+
+# Variáveis do docker compose
+.env

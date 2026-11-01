@@ -9,3 +9,5 @@
 .dockerignore
 Dockerfile
 *.md
+.env*
+docker-compose.yml

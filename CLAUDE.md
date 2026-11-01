@@ -11,6 +11,7 @@ OracleMcpHttp é um servidor MCP (Model Context Protocol) exposto via HTTP que p
 ```bash
 dotnet build                                   # solution: OracleMcpHttp.slnx
 dotnet run --project src/Backend/OracleMcpHttp # http://localhost:5464 (tela em /, MCP em /mcp)
+docker compose up -d --build                   # container com network_mode: host (VPN/LAN/localhost do host); variáveis em .env (ver .env.example)
 dotnet test
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 ```

@@ -1,0 +1,17 @@
+## Usa a rede do host (LAN, VPN, DNS e localhost do computador).
+## Requer Docker Desktop 4.34+ com "Settings > Resources > Network > Enable host networking" ativado.
+## docker compose up -d --build
+
+services:
+  oracle-mcp:
+    build: .
+    image: filipefk/oracle-mcp:latest
+    container_name: oracle-mcp
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: http://+:${MCP_PORT:-8080}
+      McpAuth__ApiKeys__0: ${MCP_API_KEY:?defina MCP_API_KEY no arquivo .env}
+      ORACLE_CONNECTION: ${ORACLE_CONNECTION:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
