@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Solution Items/">
+    <File Path=".env.example" />
     <File Path="CLAUDE.md" />
     <File Path="Dockerfile" />
     <File Path="docker-compose.yml" />
