@@ -1,49 +1,49 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo orienta o Claude Code (claude.ai/code) ao trabalhar com o código deste repositório.
 
-## Overview
+## Visão geral
 
-OracleMcpHttp is an MCP (Model Context Protocol) server exposed over HTTP that lets MCP clients connect to an Oracle database and run SQL/PL-SQL through a small set of tools. It targets .NET 10 and uses `Oracle.ManagedDataAccess.Core` (fully managed ODP.NET — no Oracle Client install needed). It mirrors `../postgre-mcp-http` (database tools) and `../n8n-mcp-http` (shell tools, API key auth, API key page).
+OracleMcpHttp é um servidor MCP (Model Context Protocol) exposto via HTTP que permite a clientes MCP conectar a um banco Oracle e executar SQL/PL-SQL por meio de um pequeno conjunto de tools. Usa .NET 10 e `Oracle.ManagedDataAccess.Core` (ODP.NET 100% gerenciado — não precisa instalar o Oracle Client). Segue o mesmo modelo de `../postgre-mcp-http` (tools de banco) e `../n8n-mcp-http` (tools de shell, autenticação por API key, tela da API key).
 
-## Commands
+## Comandos
 
 ```bash
-dotnet build                                   # solution file: OracleMcpHttp.slnx
-dotnet run --project src/Backend/OracleMcpHttp # http://localhost:5464 (page at /, MCP at /mcp)
+dotnet build                                   # solution: OracleMcpHttp.slnx
+dotnet run --project src/Backend/OracleMcpHttp # http://localhost:5464 (tela em /, MCP em /mcp)
 dotnet test
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 ```
 
-`Apagar-todas-pastas-bin-obj.cmd` recursively deletes all `bin`/`obj` folders (manual cleanup helper).
+`Apagar-todas-pastas-bin-obj.cmd` apaga recursivamente todas as pastas `bin`/`obj` (auxiliar de limpeza manual).
 
-## Architecture
+## Arquitetura
 
-- **GeraApiKey** — `ApiKeyGenerator` packs a list of strings into one header-safe key (XOR scramble + Base64Url; obfuscation, not encryption). Copied verbatim from n8n-mcp-http.
-- **McpToolkit** — tool logic. No ASP.NET Core dependency; HTTP state comes through `IRequestContext`.
-  - `OracleConnectionManager` (singleton): **one OracleConnection per MCP session** (keyed by the `Mcp-Session-Id` header, `"default"` when absent), each guarded by its own `SemaphoreSlim`. Sessions removed by disconnect/idle are flagged `Removed` so a concurrent `connect` retries with a fresh session instead of attaching to an orphan.
-  - `OracleIdleTimeoutService`: every 30s closes sessions idle longer than `Oracle:IdleTimeoutMinutes` (skips sessions whose lock is busy).
-  - `OracleSql`: SQL normalization (strip trailing `;` and SQL*Plus `/` except for PL/SQL), JSON ⇄ CLR conversion, bind parameters (`BindByName = true`, `:name`), unique column names.
+- **GeraApiKey** — `ApiKeyGenerator` empacota uma lista de strings em uma única key segura para header (embaralhamento XOR + Base64Url; ofuscação, não criptografia). Copiado sem alterações do n8n-mcp-http.
+- **McpToolkit** — lógica das tools. Sem dependência de ASP.NET Core; o estado HTTP chega via `IRequestContext`.
+  - `OracleConnectionManager` (singleton): **uma OracleConnection por sessão MCP** (chave = header `Mcp-Session-Id`, `"default"` quando ausente), cada uma protegida por seu próprio `SemaphoreSlim`. Sessões removidas por disconnect/inatividade são marcadas como `Removed`, para que um `connect` concorrente tente de novo com uma sessão nova em vez de se anexar a uma órfã.
+  - `OracleIdleTimeoutService`: a cada 30s fecha as sessões inativas há mais de `Oracle:IdleTimeoutMinutes` (ignora sessões cujo lock está ocupado).
+  - `OracleSql`: normalização de SQL (remove `;` final e `/` do SQL*Plus, exceto em PL/SQL), conversão JSON ⇄ CLR, bind parameters (`BindByName = true`, `:nome`), nomes de coluna únicos.
   - `OracleTools`: `connect`, `disconnect`, `execute_query`, `execute_command`, `extract_ddl`, `extract_user_script`, `database_info`, `list_objects`, `list_object_owners`, `list_db_links`, `test_db_links`, `list_scheduler_jobs`.
-  - `Catalog/*`: ported from the OracleTools2026 repositories behind the "Extract DDL Oracle" (`DatabaseObjectRepository` search/recent/invalid + compile errors), "DBLINKs" (`DatabaseLinkRepository`) and "Jobs de banco" (`SchedulerJobRepository`) screens; same SQL and job health rules (except `list_objects` also includes TABLE in the search and recent modes), dates formatted `dd/MM/yyyy HH:mm:ss`.
-  - `Ddl/OracleUserScriptGenerator`: ported from `UserScriptGenerator` + the `DatabaseUserRepository` queries it uses (OracleTools2026); reads `DBA_*` views.
-  - `OracleDatabaseInfo`: ported from `DatabaseObjectRepository.GetDatabaseDetailsAsync` (OracleTools2026); each query is independent and silently skipped on `OracleException` (missing privilege/older version).
-  - `Ddl/OracleDdlExtractor`: ported from `OracleTools2026.Core\Data\DdlExtractor.cs` (same output, header and inline compile-error options) plus TABLE support built from `ALL_*` views (columns, comments, constraints, indexes, triggers). Runs on the session connection via `OracleConnectionManager.ExtractDdlAsync`.
-  - `Shell/*`: shell tools, copied verbatim from n8n-mcp-http.
-- **OracleMcpHttp** — ASP.NET Core host.
-  - `McpApiKey`: the x-api-key value order is `[mcpApiKey, oracleConnectionString]`; only `ToValues`/`FromValues` know it.
-  - `McpApiKeyMiddleware`: `/mcp` reads the encoded key, `/api-key/*` reads the raw MCP key; validates against `McpAuth:ApiKeys` in constant time; empty list rejects everything.
-  - `McpTrafficLoggingMiddleware` (only `/mcp`): masks `x-api-key`, shell `password` and `Password=`/`Pwd=` in connection strings.
+  - `Catalog/*`: portado dos repositórios do OracleTools2026 usados pelas telas "Extract DDL Oracle" (`DatabaseObjectRepository` busca/recentes/inválidos + erros de compilação), "DBLINKs" (`DatabaseLinkRepository`) e "Jobs de banco" (`SchedulerJobRepository`); mesmo SQL e mesmas regras de saúde dos jobs (exceto que `list_objects` também inclui TABLE nos modos search e recent), datas no formato `dd/MM/yyyy HH:mm:ss`.
+  - `Ddl/OracleUserScriptGenerator`: portado de `UserScriptGenerator` + as consultas do `DatabaseUserRepository` que ele usa (OracleTools2026); lê as views `DBA_*`.
+  - `OracleDatabaseInfo`: portado de `DatabaseObjectRepository.GetDatabaseDetailsAsync` (OracleTools2026); cada consulta é independente e ignorada silenciosamente em caso de `OracleException` (falta de privilégio/versão antiga).
+  - `Ddl/OracleDdlExtractor`: portado de `OracleTools2026.Core\Data\DdlExtractor.cs` (mesma saída, mesmas opções de cabeçalho e de erro de compilação na linha) mais suporte a TABLE montado a partir das views `ALL_*` (colunas, comentários, constraints, índices, triggers). Roda na conexão da sessão via `OracleConnectionManager.ExtractDdlAsync`.
+  - `Shell/*`: tools de shell, copiadas sem alterações do n8n-mcp-http.
+- **OracleMcpHttp** — host ASP.NET Core.
+  - `McpApiKey`: a ordem dos valores no x-api-key é `[mcpApiKey, oracleConnectionString]`; só `ToValues`/`FromValues` conhecem essa ordem.
+  - `McpApiKeyMiddleware`: `/mcp` lê a key codificada, `/api-key/*` lê a chave MCP pura; valida contra `McpAuth:ApiKeys` em tempo constante; lista vazia rejeita tudo.
+  - `McpTrafficLoggingMiddleware` (apenas `/mcp`): mascara `x-api-key`, o `password` do shell e `Password=`/`Pwd=` nas connection strings.
   - `Endpoints/ApiKeyEndpoints`: `generate`, `decode`, `test-connection`.
-  - `wwwroot/index.html`: API key page (fields or raw connection string, connection test, decode).
-  - Global per-IP rate limiter (`RateLimit:*`) runs before auth.
+  - `wwwroot/index.html`: tela da API key (campos ou connection string pura, teste de conexão, decodificação).
+  - Rate limiter global por IP (`RateLimit:*`) roda antes da autenticação.
 
-## Connection string precedence
+## Precedência da connection string
 
-`connect` uses: API key value → `Oracle:ConnectionString` / env `ORACLE_CONNECTION` → `connection_string` tool parameter. The response field `source` says which one was used. Connection strings are never returned or persisted.
+`connect` usa: valor da API key → `Oracle:ConnectionString` / variável de ambiente `ORACLE_CONNECTION` → parâmetro `connection_string` da tool. O campo `source` da resposta informa qual foi usada. Connection strings nunca são retornadas nem persistidas.
 
-## Conventions
+## Convenções
 
-- Tool I/O uses `JsonObject`/`JsonNode`, not DTOs. Tool/user-facing text is in Portuguese (pt-BR).
-- `Shell:Enabled` defaults to false.
-- `appsettings.Development.json` holds a dev MCP key; keep real credentials out of version control.
+- Entrada/saída das tools usa `JsonObject`/`JsonNode`, não DTOs. Textos das tools e voltados ao usuário ficam em português (pt-BR).
+- `Shell:Enabled` é false por padrão.
+- `appsettings.Development.json` contém uma chave MCP de desenvolvimento; mantenha credenciais reais fora do controle de versão.

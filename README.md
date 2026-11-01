@@ -72,7 +72,7 @@ A tool `connect` escolhe a connection string nesta ordem:
 | `extract_ddl(object_name, include_header = false, inline_compile_errors = false)` | Retorna a DDL completa e pronta de um objeto (tabela, view, sequence, procedure, function, package, type, trigger, java source, job), com sinônimos e grants. Para tabela inclui comentários, constraints, índices e triggers. Opções de cabeçalho e de mensagem de erro de compilação na linha. |
 | `extract_user_script(user_names)` | Gera o script de criação de um ou mais usuários (CREATE USER com `<SENHA_USUARIO>`, tablespaces, profile, cotas, privilégios de sistema, roles e grants diretos de objetos/colunas). Exige leitura das views `DBA_*`. |
 | `database_info()` | Retorna informações do banco agrupadas (banco de dados, instância, armazenamento, NLS, sessão, cliente). O que depende de views sem privilégio (`V$*`, `DBA_*`) é omitido. |
-| `list_objects(mode = "search", owner?, object_type?, name?, days = 15, max_rows = 1000)` | Lista objetos como a tela "Extract DDL Oracle": `search` (FUNCTION, JOB, PACKAGE, PROCEDURE, SEQUENCE, TABLE, TRIGGER, TYPE, VIEW, JAVA SOURCE por owner/tipo/parte do nome), `invalid` (inválidos de qualquer tipo, com os erros de compilação) ou `recent` (compilados/alterados nos últimos N dias, incluindo tabelas). Retorna owner, nome, tipo, criação, alteração, status e mensagem de erro. |
+| `list_objects(mode = "search", owner?, object_type?, name?, days = 15, max_rows = 1000)` | Lista objetos de banco: `search` (FUNCTION, JOB, PACKAGE, PROCEDURE, SEQUENCE, TABLE, TRIGGER, TYPE, VIEW, JAVA SOURCE por owner/tipo/parte do nome), `invalid` (inválidos de qualquer tipo, com os erros de compilação) ou `recent` (compilados/alterados nos últimos N dias, incluindo tabelas). Retorna owner, nome, tipo, criação, alteração, status e mensagem de erro. |
 | `list_object_owners()` | Lista os owners com objetos em `ALL_OBJECTS` (filtro de `list_objects`). |
 | `list_db_links()` | Lista os DBLINKs de `ALL_DB_LINKS` (criação, owner, nome, usuário, host), como a tela "DBLINKs". |
 | `test_db_links(db_links?)` | Testa os DBLINKs informados (ou todos) com `SELECT DUMMY FROM DUAL@link` (timeout de 60s) e fecha cada link após o teste. Retorna `TESTE OK` ou `ERRO: <mensagem>` por link. |
@@ -117,11 +117,3 @@ docker build -t oracle-mcp .
 ```bash
 docker run -p 8080:8080 -e McpAuth__ApiKeys__0=minha-chave-mcp -e ORACLE_CONNECTION="User Id=...;Password=...;Data Source=//host:1521/SERVICO" oracle-mcp
 ```
-
-## Testes
-
-```bash
-dotnet test
-```
-
-A collection do Postman (`OracleMcpHttp.postman_collection.json` + environment) cobre geração da key, handshake MCP e todas as tools.
