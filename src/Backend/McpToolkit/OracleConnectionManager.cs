@@ -1,3 +1,5 @@
+using McpToolkit.Catalog;
+using McpToolkit.Ddl;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Oracle.ManagedDataAccess.Client;
@@ -171,6 +173,226 @@ public sealed class OracleConnectionManager(
             };
         }, ct);
     }
+
+    public async Task<JsonObject> ExtractDdlAsync(string objectName, bool includeHeader, bool inlineCompileErrors, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(objectName))
+            throw new InvalidOperationException("O parâmetro 'object_name' não pode ser vazio.");
+
+        return await WithConnectionAsync(async connection =>
+        {
+            var extractor = new OracleDdlExtractor(connection, options.Value.CommandTimeoutSeconds);
+            var result = await extractor.ExtractAsync(objectName.Trim(), new DdlExtractionOptions(includeHeader, inlineCompileErrors), ct);
+            if (result.Error is not null)
+                throw new InvalidOperationException(result.Error);
+
+            return new JsonObject
+            {
+                ["object"] = result.QualifiedName,
+                ["objectType"] = result.ObjectType,
+                ["ddl"] = result.Source
+            };
+        }, ct);
+    }
+
+    public async Task<JsonObject> ExtractUserScriptAsync(string userNames, CancellationToken ct)
+    {
+        var names = (userNames ?? "")
+            .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(n => n.Replace("\"", "").ToUpperInvariant())
+            .Where(n => n.Length > 0)
+            .Distinct()
+            .ToList();
+        if (names.Count == 0)
+            throw new InvalidOperationException("O parâmetro 'user_names' não pode ser vazio.");
+
+        return await WithConnectionAsync(async connection =>
+        {
+            var generator = new OracleUserScriptGenerator(connection, options.Value.CommandTimeoutSeconds);
+            var results = new List<UserScriptResult>(names.Count);
+            foreach (var name in names)
+            {
+                ct.ThrowIfCancellationRequested();
+                results.Add(await generator.GenerateAsync(name, ct));
+            }
+
+            var failures = results.Where(r => !r.Succeeded).ToList();
+            if (failures.Count == results.Count)
+                throw new InvalidOperationException(string.Join("\n", failures.Select(f => f.Error)));
+
+            return new JsonObject
+            {
+                ["users"] = new JsonArray(results.Where(r => r.Succeeded).Select(r => (JsonNode)r.UserName).ToArray()),
+                ["errors"] = new JsonArray(failures.Select(f => (JsonNode)f.Error!).ToArray()),
+                ["script"] = string.Join("\r\n\r\n", results.Where(r => r.Succeeded).Select(r => r.Script))
+            };
+        }, ct);
+    }
+
+    public async Task<JsonObject> GetDatabaseInfoAsync(CancellationToken ct) =>
+        await WithConnectionAsync(connection =>
+            new OracleDatabaseInfo(connection, options.Value.CommandTimeoutSeconds).GetDatabaseDetailsAsync(ct), ct);
+
+    public async Task<JsonObject> ListObjectsAsync(string? mode, string? owner, string? objectType, string? name, int days, int maxRows, CancellationToken ct)
+    {
+        static string? NullIfAll(string? value) =>
+            string.IsNullOrWhiteSpace(value) || value.Trim().Equals("Todos", StringComparison.OrdinalIgnoreCase) ? null : value.Trim();
+
+        var normalizedMode = string.IsNullOrWhiteSpace(mode) ? "search" : mode.Trim().ToLowerInvariant();
+        owner = NullIfAll(owner)?.Replace("\"", "");
+        objectType = NullIfAll(objectType)?.ToUpperInvariant();
+        name = NullIfAll(name);
+        if (maxRows <= 0) maxRows = 1000;
+
+        if (normalizedMode is not ("search" or "recent" or "invalid"))
+            throw new InvalidOperationException("O parâmetro 'mode' deve ser 'search', 'recent' ou 'invalid'.");
+
+        if (normalizedMode == "search" && objectType is not null && !OracleObjectRepository.SupportedTypes.Contains(objectType))
+            throw new InvalidOperationException(
+                $"Tipo '{objectType}' não suportado. Tipos válidos: {string.Join(", ", OracleObjectRepository.SupportedTypes)}.");
+
+        // Como na tela: a listagem de recentes ignora os filtros de owner, tipo e nome.
+        if (normalizedMode == "recent")
+        {
+            days = days <= 0 ? 15 : Math.Min(days, 3650);
+            owner = objectType = name = null;
+        }
+
+        return await WithConnectionAsync(async connection =>
+        {
+            var repository = new OracleObjectRepository(connection, options.Value.CommandTimeoutSeconds);
+            var objects = normalizedMode switch
+            {
+                "recent" => await repository.GetRecentlyCompiledAsync(days, ct),
+                "invalid" => await repository.GetInvalidAsync(owner, objectType, name, ct),
+                _ => await repository.SearchAsync(owner, objectType, name, ct)
+            };
+
+            var filters = new JsonObject();
+            if (normalizedMode == "recent")
+            {
+                filters["days"] = days;
+            }
+            else
+            {
+                filters["owner"] = owner;
+                filters["objectType"] = objectType;
+                filters["name"] = name;
+            }
+
+            return new JsonObject
+            {
+                ["mode"] = normalizedMode,
+                ["filters"] = filters,
+                ["totalCount"] = objects.Count,
+                ["invalidCount"] = objects.Count(o => o.Status == "INVALID"),
+                ["truncated"] = objects.Count > maxRows,
+                ["objects"] = new JsonArray(objects.Take(maxRows).Select(o => (JsonNode)o.ToJson()).ToArray())
+            };
+        }, ct);
+    }
+
+    public async Task<JsonObject> ListObjectOwnersAsync(CancellationToken ct) =>
+        await WithConnectionAsync(async connection =>
+        {
+            var owners = await new OracleObjectRepository(connection, options.Value.CommandTimeoutSeconds).GetOwnersAsync(ct);
+            return new JsonObject
+            {
+                ["count"] = owners.Count,
+                ["owners"] = new JsonArray(owners.Select(o => (JsonNode)o).ToArray())
+            };
+        }, ct);
+
+    public async Task<JsonObject> ListDatabaseLinksAsync(CancellationToken ct) =>
+        await WithConnectionAsync(async connection =>
+        {
+            var links = await new OracleDatabaseLinkRepository(connection, options.Value.CommandTimeoutSeconds).GetLinksAsync(ct);
+            return new JsonObject
+            {
+                ["count"] = links.Count,
+                ["dbLinks"] = new JsonArray(links.Select(l => (JsonNode)l.ToJson()).ToArray())
+            };
+        }, ct);
+
+    public async Task<JsonObject> TestDatabaseLinksAsync(string? linkNames, CancellationToken ct)
+    {
+        var requested = (linkNames ?? "")
+            .Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(n => n.Length > 0)
+            .ToList();
+
+        return await WithConnectionAsync(async connection =>
+        {
+            var repository = new OracleDatabaseLinkRepository(connection, options.Value.CommandTimeoutSeconds);
+            var links = await repository.GetLinksAsync(ct);
+
+            // Sem nomes informados testa todos ("Testar todos"); com nomes, só os informados ("Testar selecionados").
+            // Aceita NOME ou OWNER.NOME; um nome repetido em vários owners (ex.: PUBLIC e outro usuário) testa todos eles.
+            var selected = new List<DatabaseLink>();
+            var notFound = new JsonArray();
+            if (requested.Count == 0)
+            {
+                selected.AddRange(links);
+            }
+            else
+            {
+                foreach (var item in requested)
+                {
+                    var matches = links.Where(l =>
+                        l.Name.Equals(item, StringComparison.OrdinalIgnoreCase) ||
+                        $"{l.Owner}.{l.Name}".Equals(item, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (matches.Count == 0)
+                        notFound.Add(item);
+                    foreach (var match in matches)
+                    {
+                        if (!selected.Contains(match))
+                            selected.Add(match);
+                    }
+                }
+            }
+
+            var results = new JsonArray();
+            var failures = 0;
+            foreach (var link in selected)
+            {
+                ct.ThrowIfCancellationRequested();
+                var error = await repository.TestLinkAsync(link.Name, ct);
+                if (error is not null) failures++;
+
+                var json = link.ToJson();
+                json["ok"] = error is null;
+                json["test"] = error is null ? "TESTE OK" : $"ERRO: {error.ReplaceLineEndings(" ")}";
+                results.Add(json);
+            }
+
+            return new JsonObject
+            {
+                ["tested"] = selected.Count,
+                ["ok"] = selected.Count - failures,
+                ["failed"] = failures,
+                ["notFound"] = notFound,
+                ["dbLinks"] = results
+            };
+        }, ct);
+    }
+
+    public async Task<JsonObject> ListSchedulerJobsAsync(CancellationToken ct) =>
+        await WithConnectionAsync(async connection =>
+        {
+            var jobs = await new OracleSchedulerJobRepository(connection, options.Value.CommandTimeoutSeconds).GetJobsAsync(ct);
+            return new JsonObject
+            {
+                ["count"] = jobs.Count,
+                ["summary"] = new JsonObject
+                {
+                    ["ok"] = jobs.Count(j => j.Health == SchedulerJobHealth.Ok),
+                    ["disabled"] = jobs.Count(j => j.Health == SchedulerJobHealth.Disabled),
+                    ["overdue"] = jobs.Count(j => j.Health == SchedulerJobHealth.Overdue),
+                    ["longRunning"] = jobs.Count(j => j.Health == SchedulerJobHealth.LongRunning)
+                },
+                ["jobs"] = new JsonArray(jobs.Select(j => (JsonNode)j.ToJson()).ToArray())
+            };
+        }, ct);
 
     // Abre uma conexão avulsa só para validar a connection string (usado pela tela de geração da API Key).
     public static async Task<JsonObject> TestConnectionAsync(string connectionString, CancellationToken ct)

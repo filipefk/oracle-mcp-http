@@ -24,7 +24,11 @@ dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
   - `OracleConnectionManager` (singleton): **one OracleConnection per MCP session** (keyed by the `Mcp-Session-Id` header, `"default"` when absent), each guarded by its own `SemaphoreSlim`. Sessions removed by disconnect/idle are flagged `Removed` so a concurrent `connect` retries with a fresh session instead of attaching to an orphan.
   - `OracleIdleTimeoutService`: every 30s closes sessions idle longer than `Oracle:IdleTimeoutMinutes` (skips sessions whose lock is busy).
   - `OracleSql`: SQL normalization (strip trailing `;` and SQL*Plus `/` except for PL/SQL), JSON ⇄ CLR conversion, bind parameters (`BindByName = true`, `:name`), unique column names.
-  - `OracleTools`: `connect`, `disconnect`, `execute_query`, `execute_command`.
+  - `OracleTools`: `connect`, `disconnect`, `execute_query`, `execute_command`, `extract_ddl`, `extract_user_script`, `database_info`, `list_objects`, `list_object_owners`, `list_db_links`, `test_db_links`, `list_scheduler_jobs`.
+  - `Catalog/*`: ported from the OracleTools2026 repositories behind the "Extract DDL Oracle" (`DatabaseObjectRepository` search/recent/invalid + compile errors), "DBLINKs" (`DatabaseLinkRepository`) and "Jobs de banco" (`SchedulerJobRepository`) screens; same SQL and job health rules (except `list_objects` also includes TABLE in the search and recent modes), dates formatted `dd/MM/yyyy HH:mm:ss`.
+  - `Ddl/OracleUserScriptGenerator`: ported from `UserScriptGenerator` + the `DatabaseUserRepository` queries it uses (OracleTools2026); reads `DBA_*` views.
+  - `OracleDatabaseInfo`: ported from `DatabaseObjectRepository.GetDatabaseDetailsAsync` (OracleTools2026); each query is independent and silently skipped on `OracleException` (missing privilege/older version).
+  - `Ddl/OracleDdlExtractor`: ported from `OracleTools2026.Core\Data\DdlExtractor.cs` (same output, header and inline compile-error options) plus TABLE support built from `ALL_*` views (columns, comments, constraints, indexes, triggers). Runs on the session connection via `OracleConnectionManager.ExtractDdlAsync`.
   - `Shell/*`: shell tools, copied verbatim from n8n-mcp-http.
 - **OracleMcpHttp** — ASP.NET Core host.
   - `McpApiKey`: the x-api-key value order is `[mcpApiKey, oracleConnectionString]`; only `ToValues`/`FromValues` know it.

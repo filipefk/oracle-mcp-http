@@ -6,7 +6,7 @@ Usa o driver **Oracle.ManagedDataAccess.Core** (ODP.NET Managed), 100% gerenciad
 
 ## Recursos
 
-- **Tools Oracle**: `connect`, `disconnect`, `execute_query`, `execute_command`.
+- **Tools Oracle**: `connect`, `disconnect`, `execute_query`, `execute_command`, `extract_ddl`, `extract_user_script`, `database_info`, `list_objects`, `list_object_owners`, `list_db_links`, `test_db_links`, `list_scheduler_jobs`.
 - **Tools de shell** (opcionais): `get_shell_info`, `execute_shell_command`.
 - **Controle de API Key**: todas as chamadas a `/mcp` exigem o header `x-api-key`.
 - **Tela para gerar a API Key** (`/`): monta a key com a chave MCP e as credenciais do Oracle, testa a conexão e decodifica keys existentes.
@@ -69,6 +69,14 @@ A tool `connect` escolhe a connection string nesta ordem:
 | `disconnect()` | Fecha a conexão da sessão. Idempotente. |
 | `execute_query(sql, parameters_json?, max_rows = 1000)` | Executa um SELECT e retorna colunas (nome/tipo) e linhas em JSON. |
 | `execute_command(sql, parameters_json?)` | Executa INSERT/UPDATE/DELETE/MERGE, DDL ou PL/SQL e retorna as linhas afetadas. |
+| `extract_ddl(object_name, include_header = false, inline_compile_errors = false)` | Retorna a DDL completa e pronta de um objeto (tabela, view, sequence, procedure, function, package, type, trigger, java source, job), com sinônimos e grants. Para tabela inclui comentários, constraints, índices e triggers. Opções de cabeçalho e de mensagem de erro de compilação na linha. |
+| `extract_user_script(user_names)` | Gera o script de criação de um ou mais usuários (CREATE USER com `<SENHA_USUARIO>`, tablespaces, profile, cotas, privilégios de sistema, roles e grants diretos de objetos/colunas). Exige leitura das views `DBA_*`. |
+| `database_info()` | Retorna informações do banco agrupadas (banco de dados, instância, armazenamento, NLS, sessão, cliente). O que depende de views sem privilégio (`V$*`, `DBA_*`) é omitido. |
+| `list_objects(mode = "search", owner?, object_type?, name?, days = 15, max_rows = 1000)` | Lista objetos como a tela "Extract DDL Oracle": `search` (FUNCTION, JOB, PACKAGE, PROCEDURE, SEQUENCE, TABLE, TRIGGER, TYPE, VIEW, JAVA SOURCE por owner/tipo/parte do nome), `invalid` (inválidos de qualquer tipo, com os erros de compilação) ou `recent` (compilados/alterados nos últimos N dias, incluindo tabelas). Retorna owner, nome, tipo, criação, alteração, status e mensagem de erro. |
+| `list_object_owners()` | Lista os owners com objetos em `ALL_OBJECTS` (filtro de `list_objects`). |
+| `list_db_links()` | Lista os DBLINKs de `ALL_DB_LINKS` (criação, owner, nome, usuário, host), como a tela "DBLINKs". |
+| `test_db_links(db_links?)` | Testa os DBLINKs informados (ou todos) com `SELECT DUMMY FROM DUAL@link` (timeout de 60s) e fecha cada link após o teste. Retorna `TESTE OK` ou `ERRO: <mensagem>` por link. |
+| `list_scheduler_jobs()` | Lista os jobs de `ALL_SCHEDULER_JOBS` com as mesmas colunas da tela "Jobs de banco" e a situação (OK, desabilitado, atrasado, rodando há mais de 1 hora), com resumo por situação. |
 
 - **Uma conexão por sessão MCP**: cada cliente usa as próprias credenciais, sem misturar usuários. A conexão é fechada após `Oracle:IdleTimeoutMinutes` de inatividade.
 - **Bind variables**: `parameters_json` = `{"id": 42}` e no SQL `:id`. Booleanos vão como 1/0; datas como texto convertido no SQL (`TO_DATE(:dt, 'YYYY-MM-DD')`).
